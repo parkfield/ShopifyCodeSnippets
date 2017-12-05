@@ -1,0 +1,11 @@
+{% for link in linklists['main-menu'].links %}
+  {% if linklists[link.handle] and linklists[link.handle].links.size > 0 %}
+    {% for childlink in linklists[link.handle].links %}
+      {% if childlink.handle == collection.handle %}
+        {% assign parentLink = link.url %}
+        {% assign parentTitle = link.title %}
+        {% break %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+{% endfor %}
