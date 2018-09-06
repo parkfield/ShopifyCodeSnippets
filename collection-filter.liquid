@@ -2,154 +2,63 @@
 Used to get all unique filter categories. If tag contains underscore check the first word of that underscored word, if its not in the 'categories' variable, add to it, and split into an array at the end.
 
 tag = color_blue
-tagCat = color
+categoryCheck = color
 categories = [color, brand, voltage]
 {% endcomment %}
 
-{% if template contains 'collection' and collection.all_tags.size > 0 %}
-  {% assign categories = 'brand+price' %}
-  {% for tag in collection.all_tags%}
-  {% unless tag contains 'related' %}
-    {% if tag contains '_' %}
-      {% assign tagCat = tag | split: '_' | first | handleize %}
-      {% unless categories contains tagCat %}
-        {% unless categories == blank %}
-          {% assign categories = categories | append: '+' | append: tagCat %}
-        {% else %}
-          {% assign categories = categories | append: tagCat %}
-        {% endunless %}
-      {% endunless %}
-    {% endif %}
-  {% endunless %}
-  {% endfor %}
+{% assign categories = '' %}
+{% assign categories = categories | split: '' %}
+{% assign lastCategory = '' %}
+<ul class="CollectionFilter">
+{% for tag in collection.all_tags %}
+  
+  {% if tag contains '_' %}
+    {% assign categoryCheck = tag | split:'_' | first %}
+    {% unless categories contains categoryCheck %}
+      {% if lastCategory != '' and lastCategory != categoryCheck %}
+        </ul>
+        </li>
+      {% endif %}
+      {% if lastCategory != categoryCheck %}
+        <li class="CollectionFilter__category">
+          <button class="CollectionFilter__dropdown-trigger">{{categoryCheck}}</button>
+          <ul class="CollectionFilter__dropdown">
+      {% endif %}
+      {% assign categories = categories | append: categoryCheck %}
+      {% assign lastCategory = categoryCheck %}
+    {% endunless %}
+    <li class="CollectionFilter__filter-value-container {% if current_tags contains tag %}active{% endif %}">
+      <label class="CollectionFilter__filter-value-label" for="{{tag}}">{{tag}}</label>
+      <input {% if current_tags contains tag %}checked{% endif %} class="CollectionFilter__filter-value js-filterValue" id="{{tag}}" type="radio" name="{{categoryCheck}}" value="{{tag | handleize}}">
+    </li>
+  {% endif %}
 
-  {% unless categories == blank %}
-    {% assign categories = categories | split: '+' %}
-  {% endunless %}
+  {% if forloop.last %}
+  </ul>
+  </li>
+  {% endif %}
 
-{% endif %}
-
-
-{% if template contains 'collection' and collection.all_tags.size > 0 %}
-<div class="filter-menu-container">
-  <div id="filter-menu">
-    <h3>Filter Heading</h3>
-    <ul>
-    {% for cat in categories %}
-      {% assign category = cat | handleize %}
-      {% assign label = cat | replace: '-',' ' | split: ' ' %}
-      {% capture labelCap %}
-        {% for word in label %}
-          {{ word | capitalize }}
-        {% endfor %}
-      {% endcapture %}
-      <li>
-      <span class="filter-cat-heading">{{labelCap}}</span> 
-      <ul>
-        {% for tag in collection.all_tags %}
-          {% if tag contains '_' %}
-            {% assign tagCat = tag | split: '_' | first | handleize %}
-            {% assign tagVal = tag | split: '_' | last %}
-
-            {% if tagVal contains '(0)'%}
-              {% assign tagVal = tagVal | replace_first: '(0)', '' %}
-            {% endif %}
-            {% if tagVal contains '(d)'%}
-              {% assign tagVal = tagVal | replace_first: '(d)', '0' %}
-            {% endif %}
-            {% if tagVal contains '(h)' %}
-              {% assign tagVal = tagVal | replace_first: '(h)', '00' %}
-            {% endif %}
-            {% if tagVal contains '(k)' %}
-              {% assign tagVal = tagVal | replace_first: '(k)', '000' %}
-            {% endif %}
-
-            {% if tagCat == category %}
-              <li class="filter-value"><input type="checkbox" data-group="{{category}}" value ='{{tag | handleize}}'>{{tagVal}}</input></li>
-            {% endif %}
-          {% endif %}
-        {% endfor %}
-      </ul>
-      </li>
-    {% endfor %}
-    <!--
-    <li class="filter-button-container"><button id="filterCollectionsButton" onclick="submitFilter()">{{'collections.sidebar.button_label' | t}}</button></li>
-    </ul>-->
-  </div>
-</div>
-{% endif %}
+{% endfor %}
+</ul>
 
 <script>
-$(document).ready(function(){
-  currentFilterState();
-});
-
-function currentFilterState(){
-  //Sets filter checkbox state depending on url
-  var urlSegment = document.URL.substring(document.URL.lastIndexOf('/')+1);
-  if(urlSegment){
-    var activeFilters = urlSegment.split('+');
-    for(var i = 0; i < activeFilters.length; i++){
-      $("input[value='"+activeFilters[i]+"']").prop("checked", true);
+  $('.js-filterValue').change(function(){
+    var rootUrl = '{{shop.url}}'+'{{collection.url}}';
+    if('{{collection.url}}' == ''){
+      rootUrl = '{{shop.url}}'+'/collections/all'
     }
-  }
-}
+    var urlSegment = '';
+    $(".js-filterValue:checked").each(function() {
+      if(this.checked){
+        if(urlSegment == ''){
+          urlSegment+='/'+this.value;
+        }else{
+          urlSegment+='+'+this.value;
+        }
+      }
+    });
 
-function urlRedirect(filters){
-  //Handles redirect on pressing filter submit
-  var urlSegment = '';
-  for (var i = 0; i < filters.length; i++) {
-    if(urlSegment == ''){
-      urlSegment+='/'+filters[i];
-    }else{
-      urlSegment+='+'+filters[i];
-    }
-  }
-
-  var rootUrl = '{{shop.url}}'+'{{collection.url}}';
-
-  if('{{collection.url}}' == ''){
-    rootUrl = '{{shop.url}}'+'/collections/all'
-  }
-  window.location = rootUrl+urlSegment;
-}
-
-//Redirect when button is clicked
-function submitFilter(){
-  var selected = [];
-  $('input:checked').each(function(){
-    selected.push($(this).attr('value'));
-  });
-  urlRedirect(selected);
-}
-
-//Redirects when checkbox changes
-$('#filter-menu .filter-value input[type="checkbox"]').click(function(){
-  var category = $(this).attr('data-group');
-  //Deselect all but the one clicked
-  $('#filter-menu input[data-group="'+category+'"]').not($(this)).prop("checked",false);
-  var selected = [];
-  var trigValue = $(this).attr('value');
-  $('#filter-menu input:checked').each(function(){
-    selected.push($(this).attr('value'));
-  });
-
-  urlRedirect(selected);
-});
-
-//Redirects when checkbox changes
-$('#filter-menu-mobile .filter-value input[type="checkbox"]').click(function(){
-  var category = $(this).attr('data-group');
-  //Deselect all but the one clicked
-  $('#filter-menu-mobile input[data-group="'+category+'"]').not($(this)).prop("checked",false);
-  var selected = [];
-  var trigValue = $(this).attr('value');
-  $('#filter-menu-mobile input:checked').each(function(){
-    selected.push($(this).attr('value'));
-  });
-
-  urlRedirect(selected);
-});
-
+    window.location = rootUrl+urlSegment;
+  })
 </script>
 
